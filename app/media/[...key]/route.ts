@@ -10,7 +10,6 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { ReadableOptions } from 'node:stream';
-import { hasValidSession } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,11 +29,6 @@ function toWebStream(filePath: string, options: ReadableOptions & { start?: numb
 }
 
 export async function GET(request: Request, context: { params: Promise<{ key: string[] }> }): Promise<Response> {
-  // Same privacy posture as the rest of the app: a signed session is required.
-  // The audio element sends cookies on same-origin requests, so this is
-  // transparent to the player.
-  if (!(await hasValidSession(request))) return new Response('Unauthorized', { status: 401 });
-
   const { key } = await context.params;
   const relative = key.join('/');
   // Reject traversal before touching the filesystem.

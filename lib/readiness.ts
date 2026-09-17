@@ -3,8 +3,8 @@
  *
  * A fresh deployment has no credentials, and the useful thing for it to do is
  * say precisely what is missing rather than fail opaquely. This module is the
- * single source of that answer: it backs /api/health, the setup checklist on
- * the login page and the status panel in the studio.
+ * single source of that answer: it backs /api/health and the status panel in
+ * the studio.
  *
  * It never reveals a secret's value — only whether one is present.
  */
@@ -24,8 +24,6 @@ export type ReadinessCheck = {
 export type Readiness = {
   /** True when an episode can actually be rendered end to end. */
   canGenerate: boolean;
-  /** True when a human can sign in. */
-  canSignIn: boolean;
   /** True when finished audio will survive the next deployment. */
   storageDurable: boolean;
   checks: ReadinessCheck[];
@@ -51,17 +49,6 @@ export function evaluateReadiness(env: NodeJS.ProcessEnv = process.env): Readine
   const isVercel = present(env.VERCEL ?? '');
   const isRemoteDb = /^(libsql|wss?|https):/.test(dbConfig.url);
   const checks: ReadinessCheck[] = [];
-
-  checks.push({
-    key: 'auth',
-    label: 'Sign-in',
-    status: present(authConfig.adminPassword) && present(authConfig.sessionSecret) ? 'ok' : 'missing',
-    detail:
-      present(authConfig.adminPassword) && present(authConfig.sessionSecret)
-        ? 'A password and signing secret are configured.'
-        : 'Set both to sign in. Generate the secret with: openssl rand -hex 32',
-    variables: ['ADMIN_PASSWORD', 'SESSION_SECRET'],
-  });
 
   checks.push({
     key: 'internal',
@@ -134,7 +121,6 @@ export function evaluateReadiness(env: NodeJS.ProcessEnv = process.env): Readine
 
   return {
     canGenerate: ok('provider') && ok('voices') && ok('internal') && byKey.get('storage')?.status !== 'missing',
-    canSignIn: ok('auth'),
     storageDurable: blobConfigured,
     checks,
     environment: {

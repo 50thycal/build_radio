@@ -6,6 +6,7 @@
  */
 import Link from 'next/link';
 import { Masthead } from '@/components/masthead';
+import { PreflightButton } from '@/components/preflight-button';
 import { SetupChecklist } from '@/components/setup-checklist';
 import { StatusBadge } from '@/components/status-badge';
 import { formatDuration, formatUsd } from '@/lib/cost';
@@ -76,6 +77,12 @@ export default async function AdminPage() {
           <dt>Recent jobs</dt>
           <dd>{jobs.length}</dd>
         </dl>
+      </section>
+
+      <section className="estimate-card" style={{ marginBottom: 20 }}>
+        <h3>Provider check</h3>
+        <p className="title">Is ElevenLabs wired up?</p>
+        <PreflightButton />
       </section>
 
       {readiness.checks.some((check) => check.status !== 'ok') ? (

@@ -1,12 +1,14 @@
 /**
  * Start a render.
  *
- * This is the only endpoint a human can use to spend money, so it requires a
- * session (the admin UI) or the internal secret (automation). It queues the
- * job and returns immediately; the work happens in /api/jobs/run.
+ * This is the endpoint the studio's Generate button calls. The browser side of
+ * this deployment is open by choice (single owner, unlisted URL), so the spend
+ * guards that matter are the ones in the pipeline itself: only ready_for_audio
+ * renders, one paid job per content version, and hard character and cost
+ * ceilings. It queues the job and returns immediately; work happens in
+ * /api/jobs/run, which still requires the internal secret.
  */
-import { hasValidSession, verifyInternalSecret } from '@/lib/auth';
-import { badRequest, json, unauthorized } from '@/lib/http';
+import { badRequest, json } from '@/lib/http';
 import { triggerJobRun } from '@/lib/jobs/dispatch';
 import { queueGeneration } from '@/lib/jobs/runner';
 import { syncEpisode } from '@/lib/episode/service';
@@ -18,9 +20,6 @@ export const dynamic = 'force-dynamic';
 const KINDS: JobKind[] = ['generate', 'regenerate_all', 'regenerate_failed'];
 
 export async function POST(request: Request): Promise<Response> {
-  const authorised = verifyInternalSecret(request) || (await hasValidSession(request));
-  if (!authorised) return unauthorized();
-
   const body = (await request.json().catch(() => ({}))) as { slug?: string; kind?: string };
   const slug = body.slug?.trim();
   if (!slug) return badRequest('slug is required');

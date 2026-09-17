@@ -72,12 +72,14 @@ export const elevenLabsConfig = {
   requestTimeoutMs: num('ELEVENLABS_TIMEOUT_MS', 120_000),
 } as const;
 
+/**
+ * Machine secrets only. There is no human sign-in: the browser side of this
+ * deployment is open by design (single owner). What still needs a secret is
+ * anything a machine calls — the worker endpoint and the GitHub integrations.
+ */
 export const authConfig = {
-  adminPassword: str('ADMIN_PASSWORD'),
-  sessionSecret: str('SESSION_SECRET'),
   internalSecret: str('INTERNAL_GENERATION_SECRET'),
   githubWebhookSecret: str('GITHUB_WEBHOOK_SECRET'),
-  sessionTtlSeconds: num('SESSION_TTL_SECONDS', 60 * 60 * 24 * 30),
 } as const;
 
 export const githubConfig = {
