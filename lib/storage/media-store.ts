@@ -134,14 +134,33 @@ export class LocalMediaStore implements MediaStore {
   }
 }
 
-/** Test double: keeps bytes in memory, no side effects. */
+/**
+ * Test double: keeps bytes in memory, no side effects.
+ *
+ * `addRandomSuffix` mirrors Vercel Blob, which stores an object at a pathname
+ * derived from the requested key rather than at the key itself. A double that
+ * always honours the requested key cannot catch code that assumes it was
+ * honoured — which is exactly how a stitch that could not find its own chunks
+ * reached production.
+ */
 export class InMemoryMediaStore implements MediaStore {
   readonly name = 'memory';
   readonly items = new Map<string, { data: Uint8Array; contentType: string }>();
+  private counter = 0;
+
+  constructor(private readonly options: { addRandomSuffix?: boolean } = {}) {}
+
+  private storedKey(key: string): string {
+    if (!this.options.addRandomSuffix) return key;
+    this.counter += 1;
+    const suffix = `-${this.counter.toString(36)}x7q`;
+    return key.replace(/(\.[^./]+)?$/, (extension) => `${suffix}${extension}`);
+  }
 
   async put(key: string, data: Uint8Array, contentType: string): Promise<StoredMedia> {
-    this.items.set(key, { data, contentType });
-    return { key, url: `memory://${key}`, size: data.byteLength, contentType };
+    const stored = this.storedKey(key);
+    this.items.set(stored, { data, contentType });
+    return { key: stored, url: `memory://${stored}`, size: data.byteLength, contentType };
   }
 
   async get(keyOrUrl: string): Promise<Uint8Array> {

@@ -229,6 +229,39 @@ describe('idempotency and duplicate protection', () => {
     expect(probe.calls).toHaveLength(callsAfterFirstRun);
   });
 
+  it('publishes when the store keeps objects under a different key than requested', async () => {
+    // Vercel Blob appends a random suffix to the pathname, so the key we ask
+    // for is not the key the bytes live at. Recording the requested key made
+    // every chunk unreadable at stitch time — after all of them were paid for.
+    await seed(makeEpisode({ dialogue: makeDialogue(6, 900) }));
+    const probe = createProviderProbe();
+    const media = new InMemoryMediaStore({ addRandomSuffix: true });
+
+    const queued = await queueGeneration({ slug: 'test-episode' });
+    if (queued.status !== 'queued') throw new Error('expected queued');
+    const result = await runJob({
+      jobId: queued.job.id,
+      client: probe.client,
+      mediaStore: media,
+      sleep: noSleep,
+    });
+
+    expect(result.status).toBe('completed');
+    const episode = await getEpisode('test-episode');
+    expect(episode?.status).toBe('published');
+
+    // Every recorded key resolves to real bytes, suffix and all.
+    const chunks = await listChunks('test-episode', queued.job.contentVersion);
+    expect(chunks).not.toHaveLength(0);
+    for (const chunk of chunks) {
+      expect(chunk.audioKey).toBeTruthy();
+      await expect(media.get(chunk.audioKey!)).resolves.toBeInstanceOf(Uint8Array);
+      // The requested key is precisely what does not exist in this store.
+      expect(chunk.audioKey).toMatch(/x7q\.mp3$/);
+    }
+    await expect(media.get(episode!.audioKey!)).resolves.toBeInstanceOf(Uint8Array);
+  });
+
   it('ignores a second poke while the job is already leased', async () => {
     // Re-poking a queued job is how a stranded render is revived, so it has to
     // be safe against the case where the job was in fact already running.
