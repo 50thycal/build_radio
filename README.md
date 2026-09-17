@@ -332,10 +332,17 @@ Full acceptance checklist: [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md).
    curl -s https://your-app.vercel.app/api/health | jq
    ```
 
-5. **Enable Cron.** `vercel.json` already declares a 10-minute sweep of
-   `/api/cron/tick`, which resumes any job whose continuation call was lost.
-   Vercel sets `CRON_SECRET` for you; the endpoint accepts it or the internal
-   secret.
+5. **Recovery sweep.** The job runner continues itself, so the sweep is only a
+   recovery path for a lost continuation call. Vercel's **Hobby plan allows one
+   cron run per day**, which is too slow to recover a stuck render, so the
+   frequent sweep runs from GitHub Actions instead:
+
+   - `vercel.json` declares a daily backstop at 04:00 UTC. Vercel sets
+     `CRON_SECRET`; the endpoint accepts it or the internal secret.
+   - `.github/workflows/sweep.yml` pokes `/api/cron/tick` every 15 minutes
+     using the same two repository secrets as the publish workflow.
+
+   On Pro, set `vercel.json` to `*/10 * * * *` and delete the workflow.
 
 6. **Function duration.** `/api/jobs/run` declares `maxDuration = 60`, which is
    valid on every plan. On Pro you can raise it (up to 300) and raise
