@@ -121,15 +121,37 @@ export const storageConfig = {
  * on every deployment and is not shared between instances, so production must
  * set DATABASE_URL to a Turso URL.
  */
-function defaultDatabaseUrl(): string {
-  const configured = str('DATABASE_URL');
-  if (configured) return configured;
-  return process.env.VERCEL ? 'file:/tmp/build-os-radio.db' : 'file:./data/build-os-radio.db';
+/**
+ * Variable names accepted for the database, in priority order.
+ *
+ * Hosted integrations name these differently — the Turso Vercel integration
+ * applies a configurable prefix, and its own convention is TURSO_*. Accepting
+ * the common spellings means a correctly installed integration works whatever
+ * prefix was chosen, instead of silently falling back to a temporary database
+ * that looks fine until a render spans two serverless instances.
+ */
+const DATABASE_URL_VARIABLES = ['DATABASE_URL', 'TURSO_DATABASE_URL', 'TURSO_URL'] as const;
+const DATABASE_TOKEN_VARIABLES = ['DATABASE_AUTH_TOKEN', 'TURSO_AUTH_TOKEN', 'TURSO_DATABASE_AUTH_TOKEN'] as const;
+
+function firstConfigured(names: readonly string[]): { name: string; value: string } | null {
+  for (const name of names) {
+    const value = str(name);
+    if (value) return { name, value };
+  }
+  return null;
 }
 
+const configuredUrl = firstConfigured(DATABASE_URL_VARIABLES);
+const configuredToken = firstConfigured(DATABASE_TOKEN_VARIABLES);
+
 export const dbConfig = {
-  url: defaultDatabaseUrl(),
-  authToken: str('DATABASE_AUTH_TOKEN'),
+  url:
+    configuredUrl?.value ??
+    (process.env.VERCEL ? 'file:/tmp/build-os-radio.db' : 'file:./data/build-os-radio.db'),
+  authToken: configuredToken?.value ?? '',
+  /** Which variable supplied the URL, so diagnostics can say so out loud. */
+  urlVariable: configuredUrl?.name ?? null,
+  tokenVariable: configuredToken?.name ?? null,
   /** True when the database will not survive a deployment. */
   get ephemeral(): boolean {
     return this.url.startsWith('file:/tmp/');

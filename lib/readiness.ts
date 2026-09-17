@@ -86,9 +86,9 @@ export function evaluateReadiness(env: NodeJS.ProcessEnv = process.env): Readine
     label: 'Operational database',
     status: isRemoteDb ? 'ok' : isVercel ? 'warn' : 'ok',
     detail: isRemoteDb
-      ? 'Remote libSQL / Turso: job and cost state persists.'
+      ? `Remote libSQL / Turso via ${dbConfig.urlVariable}: job and cost state persists.`
       : isVercel
-        ? 'Using a temporary file database. It is wiped on every deployment and is not shared between serverless instances — set DATABASE_URL to a Turso URL before generating anything.'
+        ? 'Using a temporary file database. It is wiped on every deployment and is not shared between serverless instances — set DATABASE_URL (or TURSO_DATABASE_URL) to a Turso URL before generating anything.'
         : 'Local file database. Fine for development.',
     variables: ['DATABASE_URL', 'DATABASE_AUTH_TOKEN'],
   });
