@@ -133,6 +133,26 @@ export function evaluateReadiness(env: NodeJS.ProcessEnv = process.env): Readine
   };
 }
 
+/**
+ * Environment variable NAMES that look database related.
+ *
+ * Hosted integrations invent their own names — the Turso Vercel integration
+ * applies a prefix chosen at install time — and a variable under an unexpected
+ * name is indistinguishable from no variable at all. Listing the names makes
+ * that case diagnosable without dashboard access.
+ *
+ * Names only. A value is never read, returned or logged here.
+ */
+export function databaseVariableNames(env: NodeJS.ProcessEnv = process.env): string[] {
+  const interesting = /(DATABASE|TURSO|LIBSQL|STORAGE)/i;
+  // Vercel's own build metadata is noise, not configuration.
+  const noise = /^(VERCEL|NEXT|AWS|npm|NODE)_/i;
+  return Object.keys(env)
+    .filter((name) => interesting.test(name) && !noise.test(name))
+    .filter((name) => (env[name] ?? '').trim().length > 0)
+    .sort();
+}
+
 /** Actually touch the database, so the report reflects reality not intent. */
 export async function probeDatabase(): Promise<{ ok: boolean; detail: string }> {
   try {

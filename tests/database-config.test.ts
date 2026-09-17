@@ -40,3 +40,23 @@ describe('database configuration', () => {
     expect(config.ephemeral).toBe(true);
   });
 });
+
+describe('database variable diagnostics', () => {
+  it('lists database-ish variable names without their values', async () => {
+    const { databaseVariableNames } = await import('../lib/readiness');
+    const env: NodeJS.ProcessEnv = {
+      NODE_ENV: 'test',
+      STORAGE_URL: 'libsql://secret.turso.io',
+      TURSO_AUTH_TOKEN: 'super-secret-token',
+      ELEVENLABS_API_KEY: 'should-not-appear',
+      VERCEL_STORAGE_THING: 'build metadata noise',
+      EMPTY_DATABASE_URL: '',
+    };
+    const names = databaseVariableNames(env);
+
+    expect(names).toEqual(['STORAGE_URL', 'TURSO_AUTH_TOKEN']);
+    // Nothing in the output may resemble a value.
+    expect(names.join(' ')).not.toContain('secret.turso.io');
+    expect(names.join(' ')).not.toContain('super-secret-token');
+  });
+});

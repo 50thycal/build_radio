@@ -5,7 +5,7 @@
  * deployment, before any secret exists, and it reveals only whether each
  * variable is set — never a value. It is also a useful uptime check.
  */
-import { evaluateReadiness, probeDatabase } from '@/lib/readiness';
+import { databaseVariableNames, evaluateReadiness, probeDatabase } from '@/lib/readiness';
 import { json } from '@/lib/http';
 
 export const runtime = 'nodejs';
@@ -22,6 +22,9 @@ export async function GET(): Promise<Response> {
     access: 'open',
     storageDurable: readiness.storageDurable,
     database,
+    // Names only, never values: this is how a variable set under an
+    // unexpected name (a hosted integration's prefix) becomes visible.
+    databaseVariablesPresent: databaseVariableNames(),
     environment: readiness.environment,
     checks: readiness.checks.map((check) => ({
       key: check.key,
