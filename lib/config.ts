@@ -53,8 +53,19 @@ export const safetyConfig = {
   /** Total paid requests a single job may ever issue. Absolute backstop. */
   maxRequestsPerJob: num('MAX_REQUESTS_PER_JOB', 60),
   /** Wall-clock budget for one serverless invocation before the job hands off
-   *  to a fresh invocation. Keeps us under the platform function timeout. */
-  invocationBudgetMs: num('INVOCATION_BUDGET_MS', 45_000),
+   *  to a fresh invocation. Must stay comfortably under the platform function
+   *  timeout (see maxDuration in app/api/jobs/run/route.ts). */
+  invocationBudgetMs: num('INVOCATION_BUDGET_MS', 240_000),
+  /** Assumed time to render one chunk before we have measured a real one.
+   *  Generation runs slower than realtime, so a ~2 minute chunk can take a
+   *  minute or more; the runner adapts this upward from observation. */
+  chunkTimeBudgetMs: num('CHUNK_TIME_BUDGET_MS', 90_000),
+  /** Time held back for stitching and uploading the finished episode. */
+  finaliseReserveMs: num('FINALISE_RESERVE_MS', 30_000),
+  /** Never let a provider request outlive the invocation: the request is
+   *  aborted with this much time to spare so the failure is recorded rather
+   *  than the function being killed mid-flight (which bills without storing). */
+  providerAbortMarginMs: num('PROVIDER_ABORT_MARGIN_MS', 10_000),
   /** A job that has not made progress for this long is considered stuck and
    *  may be reclaimed by the cron sweeper. */
   jobLeaseMs: num('JOB_LEASE_MS', 5 * 60_000),

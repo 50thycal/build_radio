@@ -16,9 +16,13 @@ import { logger } from '@/lib/log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-/** Keep inside the lowest Vercel plan limit; raise on Pro if you prefer fewer
- *  hand-offs, and raise INVOCATION_BUDGET_MS with it. */
-export const maxDuration = 60;
+/**
+ * Generation is slower than realtime — a two minute chunk can take a minute or
+ * more — so one invocation needs room for at least one chunk plus the stitch.
+ * INVOCATION_BUDGET_MS must stay below this; the runner also clamps each
+ * provider request so it aborts before the platform kills the function.
+ */
+export const maxDuration = 300;
 
 export async function POST(request: Request): Promise<Response> {
   if (!verifyInternalSecret(request)) return unauthorized();
