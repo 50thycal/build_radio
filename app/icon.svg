@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Build OS Radio">
+  <rect width="64" height="64" rx="14" fill="#0b0b0d"/>
+  <!-- broadcast arcs -->
+  <g fill="none" stroke="#ff8a3d" stroke-width="3.5" stroke-linecap="round">
+    <path d="M22 24a14 14 0 0 0 0 20"/>
+    <path d="M42 24a14 14 0 0 1 0 20"/>
+    <path d="M15 18a24 24 0 0 0 0 32" opacity="0.45"/>
+    <path d="M49 18a24 24 0 0 1 0 32" opacity="0.45"/>
+  </g>
+  <circle cx="32" cy="34" r="6" fill="#ff8a3d"/>
+</svg>

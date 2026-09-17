@@ -10,7 +10,7 @@ failure at 4,000 costs about $0.42.
 
 ```bash
 npm install
-npm test                 # 102 tests
+npm test                 # 108 tests
 npm run typecheck
 npm run build
 npm run episodes:validate
@@ -36,7 +36,18 @@ Estimated cost         $0.42
 ## Stage 1 — ElevenLabs proof (the first real milestone)
 
 Put `ELEVENLABS_API_KEY`, `ELEVENLABS_HOST_VOICE_ID` and
-`ELEVENLABS_GUEST_VOICE_ID` in `.env.local`, then:
+`ELEVENLABS_GUEST_VOICE_ID` in `.env.local`, then run the preflight — it costs
+under a cent and tests the whole provider contract (key, both voices, the
+Text-to-Dialogue endpoint, and whether the bytes returned are MP3 our stitcher
+can join):
+
+```bash
+npm run check:provider
+```
+
+- [ ] Preflight passes and `out/preflight.mp3` has two distinct voices
+
+Only then spend real money on the sample:
 
 ```bash
 npm run generate:local -- pipeline-that-pays-for-itself
@@ -82,6 +93,8 @@ npm run dev
 
 Deploy to Vercel with the environment from the README, then:
 
+- [ ] `curl https://<app>/api/health` reports `"status": "ready"` — if not, it
+      names exactly which variables are still missing
 - [ ] Sign-in works; an incognito window is redirected to `/login`
 - [ ] `/api/jobs/run` without the internal secret returns 401
 - [ ] The library loads on the iPhone and looks right in Safari
@@ -115,10 +128,16 @@ Then prove the money guard:
 
 ## Stage 5 — the full-length episode
 
-Only now. Write or generate a ~17,000-character episode and publish it.
+Only now. `building-from-an-iphone` ships ready for exactly this: 16,301
+characters, 9 chunks, ~20:30, $1.63 estimated.
 
-- [ ] Estimate reads roughly: 20 minutes, ~2,800 words, ~17,000 characters,
-      ~9 chunks, ~$1.70
+```bash
+npm run episodes:publish -- building-from-an-iphone
+git add episodes && git commit -m "Publish building-from-an-iphone" && git push
+```
+
+- [ ] Estimate reads roughly: 20 minutes, ~2,970 words, ~16,300 characters,
+      9 chunks, ~$1.63
 - [ ] Generation completes, hand-offs between invocations included
 - [ ] Actual character count is within a few percent of the estimate
 - [ ] Actual runtime is within a minute or so of the estimate

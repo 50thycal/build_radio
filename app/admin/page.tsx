@@ -6,10 +6,12 @@
  */
 import Link from 'next/link';
 import { Masthead } from '@/components/masthead';
+import { SetupChecklist } from '@/components/setup-checklist';
 import { StatusBadge } from '@/components/status-badge';
 import { formatDuration, formatUsd } from '@/lib/cost';
 import { listJobs } from '@/lib/db/store';
 import { listEpisodeViews, syncEpisodes, type EpisodeView } from '@/lib/episode/service';
+import { evaluateReadiness } from '@/lib/readiness';
 import type { EpisodeStatus } from '@/lib/episode/schema';
 
 export const dynamic = 'force-dynamic';
@@ -55,6 +57,7 @@ export default async function AdminPage() {
   const sync = await syncEpisodes().catch((error) => ({ synced: [], invalid: [], error: String(error) }));
   const episodes = await listEpisodeViews();
   const jobs = await listJobs({ limit: 8 });
+  const readiness = evaluateReadiness();
 
   const lifetimeSpend = episodes.reduce((sum, view) => sum + view.record.actualCostUsd, 0);
 
@@ -74,6 +77,12 @@ export default async function AdminPage() {
           <dd>{jobs.length}</dd>
         </dl>
       </section>
+
+      {readiness.checks.some((check) => check.status !== 'ok') ? (
+        <section className="section">
+          <SetupChecklist readiness={readiness} heading="Configuration" />
+        </section>
+      ) : null}
 
       {'invalid' in sync && sync.invalid.length > 0 ? (
         <section className="section">
