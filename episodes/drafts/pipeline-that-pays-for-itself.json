@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "id": "pipeline-that-pays-for-itself",
+  "slug": "pipeline-that-pays-for-itself",
+  "title": "The Pipeline That Pays For Itself",
+  "subtitle": "Why Build OS Radio treats an episode as data, not a transcript",
+  "project": "build-os",
+  "created_at": "2026-09-17T14:00:00Z",
+  "status": "draft",
+  "format": "host_guest",
+  "estimated_runtime_minutes": 4,
+  "description": "A short pilot episode used to validate the Build OS Radio pipeline end to end: chunking, two-voice dialogue generation, stitching, storage and playback. Flip status to ready_for_audio to run the acceptance test.",
+  "speakers": {
+    "host": {
+      "name": "Build",
+      "voice_id": "",
+      "role": "Host"
+    },
+    "guest": {
+      "name": "Systems Analyst",
+      "voice_id": "",
+      "role": "Guest"
+    }
+  },
+  "dialogue": [
+    {
+      "speaker": "host",
+      "text": "This is Build OS Radio. Today's episode is a test of the thing you are listening to, which feels recursive, but it is the fastest way to prove the pipeline actually works."
+    },
+    {
+      "speaker": "guest",
+      "text": "It is the right first move. You do not want to discover a chunking bug on a twenty minute script that cost two dollars to render.",
+      "delivery": "thoughtfully"
+    },
+    {
+      "speaker": "host",
+      "text": "So let's start with the decision underneath everything. An episode here is not a Markdown transcript. It is a structured JSON object with a schema version, a cast, an ordered dialogue array, chapters, and sources. Why does that matter so much?"
+    },
+    {
+      "speaker": "guest",
+      "text": "Because a transcript is a dead end. The moment you want chapters, or a private RSS feed, or a video render, or analytics on which topics you actually cover, you need structure you can query. If the episode is a blob of text, every one of those features becomes a parsing project. If the episode is data, they become views."
+    },
+    {
+      "speaker": "host",
+      "text": "And the renderer stays swappable."
+    },
+    {
+      "speaker": "guest",
+      "text": "Exactly. ElevenLabs is a renderer, not the model. The spec never says how the audio gets made. It says who speaks, in what order, with what delivery. Swap the provider and the episodes still exist unchanged. That is the difference between a product and a script."
+    },
+    {
+      "speaker": "host",
+      "text": "Let's talk about the part that actually costs money. Seventeen thousand characters, about twenty minutes, roughly a dollar seventy at current rates. What stops that from becoming a surprise bill?"
+    },
+    {
+      "speaker": "guest",
+      "text": "Three things, and they are all boring on purpose. First, the estimate is computed from the real chunk plan before anything is sent, so the number on the button is the number you pay. Second, there are hard ceilings on characters and on estimated cost, and a job that exceeds either is refused rather than trimmed. Third, and this is the important one, generation is idempotent per content version."
+    },
+    {
+      "speaker": "host",
+      "text": "Unpack that last one."
+    },
+    {
+      "speaker": "guest",
+      "text": "Every episode has a content hash covering the dialogue, the cast, the voices and the model. A render is keyed to that hash. If a webhook fires twice, if you double click the button, if a workflow retries, they all resolve to the same job. You pay once. Change a single line of dialogue and the hash changes, which is the system correctly telling you that this is a different episode now."
+    },
+    {
+      "speaker": "host",
+      "text": "What about the failure case? Half the chunks render, then the provider rate limits us.",
+      "delivery": "curious"
+    },
+    {
+      "speaker": "guest",
+      "text": "Each chunk is stored the moment it is generated. So a failure is never a full restart. The job resumes, skips everything already paid for, and only renders what is missing. Retries are bounded, never a loop, and every single provider request lands in a ledger table whether it succeeded or not. When the invoice arrives you can reconcile it line by line."
+    },
+    {
+      "speaker": "host",
+      "text": "Then stitching. No FFmpeg anywhere in the deployment. That surprised me."
+    },
+    {
+      "speaker": "guest",
+      "text": "MP3 is a sequence of self contained frames, so joining two files is mostly a matter of finding the frame boundaries and discarding the metadata around them. The subtle part is the seek table. Concatenate naively and a player estimates position from the first frame's bitrate, so scrubbing lands in the wrong place. Build OS Radio writes a real seek index over the finished file, which is why the scrubber behaves on a phone."
+    },
+    {
+      "speaker": "host",
+      "text": "And if that ever needs to become something heavier."
+    },
+    {
+      "speaker": "guest",
+      "text": "There is one interface with one method. Stitching moves to a worker without touching the episode model, the job runner or the player. That is the whole point of drawing the boundary before you need it."
+    },
+    {
+      "speaker": "host",
+      "text": "Last question. Where does the truth live?"
+    },
+    {
+      "speaker": "guest",
+      "text": "Split three ways, and the split is deliberate. GitHub holds what the episode is: the authored spec, versioned, reviewable, diffable. The database holds what happened when we rendered it: jobs, chunks, attempts, cost. Object storage holds the audio. No component is asked to be the source of truth for something it is bad at, and no piece of state has two owners."
+    },
+    {
+      "speaker": "host",
+      "text": "Which means the workflow ends up being: write the spec in a conversation, commit it, flip one field to ready for audio, and the rest is automation."
+    },
+    {
+      "speaker": "guest",
+      "text": "That is the entire thesis. Conversation, structured artifact, repository, automation, finished product. Podcasts are just the first thing that runs through it."
+    },
+    {
+      "speaker": "host",
+      "text": "If you are hearing this, the pipeline worked. That is Build OS Radio."
+    }
+  ],
+  "chapters": [
+    {
+      "title": "Why an episode is data",
+      "start_seconds": null,
+      "dialogue_index": 2
+    },
+    {
+      "title": "Cost protection",
+      "start_seconds": null,
+      "dialogue_index": 6
+    },
+    {
+      "title": "Failure and resume",
+      "start_seconds": null,
+      "dialogue_index": 10
+    },
+    {
+      "title": "Stitching without FFmpeg",
+      "start_seconds": null,
+      "dialogue_index": 12
+    },
+    {
+      "title": "Where the truth lives",
+      "start_seconds": null,
+      "dialogue_index": 16
+    }
+  ],
+  "sources": [
+    {
+      "title": "ElevenLabs Text to Dialogue",
+      "url": "https://elevenlabs.io/docs",
+      "note": "Multi-speaker rendering endpoint"
+    },
+    {
+      "title": "Build OS Radio handoff brief",
+      "note": "Architecture and cost targets"
+    }
+  ],
+  "generation": {
+    "provider": "elevenlabs",
+    "model": "eleven_v3",
+    "estimated_characters": 0,
+    "estimated_cost_usd": 0,
+    "actual_characters": 0,
+    "actual_cost_usd": 0,
+    "regeneration_cost_usd": 0,
+    "chunk_count": 0
+  },
+  "audio": {
+    "status": "not_generated",
+    "duration_seconds": null,
+    "url": null,
+    "checksum": null
+  },
+  "metadata": {
+    "purpose": "MVP acceptance test",
+    "authored_by": "handoff brief"
+  }
+}
