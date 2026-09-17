@@ -332,15 +332,22 @@ export async function runJob(options: RunOptions): Promise<RunResult> {
 
       requestsUsed += 1;
       const key = chunkAudioKey(leased.slug, plan.contentVersion, chunk.chunkId);
-      await mediaStore.put(key, generated.audio, 'audio/mpeg');
+      // Record where the object actually landed, not where we asked to put it.
+      // Vercel Blob appends a random suffix to the pathname, so the requested
+      // key does not exist afterwards and reading by it fails at stitch time —
+      // after every chunk has been paid for.
+      const storedChunk = await mediaStore.put(key, generated.audio, 'audio/mpeg');
 
-      // Provider-reported usage wins over our character count when present.
-      const billedCharacters = generated.providerCharacterCost ?? generated.characters;
+      // Our own count and the provider's disagree, and we do not control the
+      // meaning of their header. Spending is bounded by the pre-flight estimate
+      // either way, so for the record of what was spent take the larger: a
+      // system built to avoid surprise bills should never round down.
+      const billedCharacters = Math.max(generated.characters, generated.providerCharacterCost ?? 0);
       const chunkCost = roundUsd(rawCostForCharacters(billedCharacters));
       actualCostUsd = roundUsd(actualCostUsd + chunkCost);
 
       await markChunkGenerated(leased.slug, plan.contentVersion, chunk.chunkId, {
-        audioKey: key,
+        audioKey: storedChunk.key,
         durationSeconds: 0,
         actualCostUsd: chunkCost,
         providerRequestId: generated.requestId,
@@ -374,6 +381,10 @@ export async function runJob(options: RunOptions): Promise<RunResult> {
         {
           chunkId: chunk.chunkId,
           characters: generated.characters,
+          // Logged next to our own count so a divergence is visible rather
+          // than silently absorbed into the cost figure.
+          providerCharacterCost: generated.providerCharacterCost,
+          audioKey: storedChunk.key,
           bytes: generated.audio.byteLength,
           latencyMs: generated.latencyMs,
           chunkWallClockMs: now() - chunkStartedMs,
