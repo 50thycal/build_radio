@@ -26,7 +26,6 @@ async function main(): Promise<void> {
   console.log(`\n${database.ok ? '✓' : '✗'} Database\n    ${database.detail}`);
 
   console.log('\nSummary');
-  console.log(`    sign in        ${readiness.canSignIn ? 'yes' : 'no'}`);
   console.log(`    generate       ${readiness.canGenerate ? 'yes' : 'no'}`);
   console.log(`    durable media  ${readiness.storageDurable ? 'yes' : 'no'}`);
   console.log(`    spec source    ${readiness.environment.episodeSource}`);

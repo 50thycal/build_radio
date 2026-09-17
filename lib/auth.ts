@@ -1,34 +1,19 @@
 /**
- * Authentication for a private, single-owner application.
+ * Machine authentication.
  *
- * Three independent trust paths, deliberately kept separate:
- *   1. a human session   — signed cookie, used by the player and admin UI
- *   2. an internal caller — bearer token, used by the GitHub Action and by the
- *                           job runner calling itself to continue a long render
- *   3. GitHub webhooks    — HMAC signature over the raw body
+ * There is no human sign-in: this is a single-owner application and the browser
+ * side is deliberately open. Two machine trust paths remain, and both still
+ * matter because both can cause work to happen:
  *
- * Implemented entirely with Web Crypto so the same code runs in middleware
- * (edge) and in route handlers (node) without a second implementation.
+ *   1. internal callers — bearer token, used by the GitHub Action and by the
+ *      job runner when it calls itself to continue a long render
+ *   2. GitHub webhooks  — HMAC signature over the raw body
+ *
+ * Implemented with Web Crypto so the same code runs in any runtime.
  */
 import { authConfig } from './config';
 
-export const SESSION_COOKIE = 'bor_session';
-
 const encoder = new TextEncoder();
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function base64UrlDecode(value: string): Uint8Array {
-  const padded = value.replace(/-/g, '+').replace(/_/g, '/');
-  const binary = atob(padded + '='.repeat((4 - (padded.length % 4)) % 4));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
 
 async function hmac(secret: string, message: string): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey(
@@ -55,55 +40,10 @@ export function toHex(bytes: Uint8Array): string {
     .join('');
 }
 
-/* -------------------------------------------------------------- sessions */
-
-export type SessionPayload = { exp: number };
-
-export async function createSessionToken(
-  ttlSeconds: number = authConfig.sessionTtlSeconds,
-  secret: string = authConfig.sessionSecret,
-): Promise<string> {
-  if (!secret) throw new Error('SESSION_SECRET is not configured');
-  const payload: SessionPayload = { exp: Math.floor(Date.now() / 1000) + ttlSeconds };
-  const body = base64UrlEncode(encoder.encode(JSON.stringify(payload)));
-  const signature = base64UrlEncode(await hmac(secret, body));
-  return `${body}.${signature}`;
-}
-
-export async function verifySessionToken(
-  token: string | undefined | null,
-  secret: string = authConfig.sessionSecret,
-): Promise<boolean> {
-  if (!token || !secret) return false;
-  const [body, signature] = token.split('.');
-  if (!body || !signature) return false;
-  const expected = base64UrlEncode(await hmac(secret, body));
-  if (!timingSafeEqual(signature, expected)) return false;
-  try {
-    const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(body))) as SessionPayload;
-    return typeof payload.exp === 'number' && payload.exp > Math.floor(Date.now() / 1000);
-  } catch {
-    return false;
-  }
-}
-
-/** Password check for the single admin account. */
-export function checkAdminPassword(candidate: string): boolean {
-  const expected = authConfig.adminPassword;
-  if (!expected) return false;
-  return timingSafeEqual(candidate, expected);
-}
-
-export async function hasValidSession(request: Request): Promise<boolean> {
-  const cookie = request.headers.get('cookie') ?? '';
-  const match = cookie.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
-  return verifySessionToken(match?.[1]);
-}
-
 /* ------------------------------------------------------- internal callers */
 
 /**
- * Machine-to-machine auth for endpoints that can spend money.
+ * Machine-to-machine auth for the worker endpoint.
  *
  * Accepts `Authorization: Bearer <secret>` or `x-internal-secret`.
  */
@@ -112,7 +52,10 @@ export function verifyInternalSecret(request: Request, secret: string = authConf
   const header = request.headers.get('authorization') ?? '';
   const bearer = header.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : '';
   const alternative = request.headers.get('x-internal-secret')?.trim() ?? '';
-  return (bearer !== '' && timingSafeEqual(bearer, secret)) || (alternative !== '' && timingSafeEqual(alternative, secret));
+  return (
+    (bearer !== '' && timingSafeEqual(bearer, secret)) ||
+    (alternative !== '' && timingSafeEqual(alternative, secret))
+  );
 }
 
 /* ------------------------------------------------------------- webhooks */

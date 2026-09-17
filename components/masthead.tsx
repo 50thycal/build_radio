@@ -7,17 +7,7 @@ export function Masthead({ current }: { current: 'library' | 'admin' }) {
       <Link href="/" className="wordmark">
         Build OS Radio
       </Link>
-      <nav>
-        {current === 'admin' ? <Link href="/">Library</Link> : <Link href="/admin">Studio</Link>}
-        <form action="/api/auth/logout" method="post">
-          <button
-            type="submit"
-            style={{ background: 'none', border: 'none', color: 'inherit', font: 'inherit', padding: 0, cursor: 'pointer' }}
-          >
-            Sign out
-          </button>
-        </form>
-      </nav>
+      <nav>{current === 'admin' ? <Link href="/">Library</Link> : <Link href="/admin">Studio</Link>}</nav>
     </header>
   );
 }

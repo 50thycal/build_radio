@@ -16,9 +16,10 @@ export async function GET(): Promise<Response> {
   const database = await probeDatabase();
 
   const body = {
-    status: readiness.canSignIn && readiness.canGenerate && database.ok ? 'ready' : 'setup-required',
-    canSignIn: readiness.canSignIn,
+    status: readiness.canGenerate && database.ok ? 'ready' : 'setup-required',
     canGenerate: readiness.canGenerate,
+    // No human sign-in: the browser side of this deployment is open by design.
+    access: 'open',
     storageDurable: readiness.storageDurable,
     database,
     environment: readiness.environment,

@@ -73,7 +73,7 @@ npm run db:init
 npm run dev
 ```
 
-1. Sign in at `http://localhost:3000` with `ADMIN_PASSWORD`.
+1. Open `http://localhost:3000` (no sign-in).
 2. Open `/admin` → the sample appears under **Drafts**.
 3. `npm run episodes:publish -- pipeline-that-pays-for-itself`, then refresh.
 4. It moves to **Ready to generate** with the estimate panel visible.
@@ -95,7 +95,7 @@ Deploy to Vercel with the environment from the README, then:
 
 - [ ] `curl https://<app>/api/health` reports `"status": "ready"` — if not, it
       names exactly which variables are still missing
-- [ ] Sign-in works; an incognito window is redirected to `/login`
+- [ ] The studio's **Run preflight** button reports "Ready to render"
 - [ ] `/api/jobs/run` without the internal secret returns 401
 - [ ] The library loads on the iPhone and looks right in Safari
 - [ ] "Add to Home Screen" gives a full-screen app

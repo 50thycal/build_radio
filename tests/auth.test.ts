@@ -1,59 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import {
-  SESSION_COOKIE,
-  checkAdminPassword,
-  createSessionToken,
-  hasValidSession,
-  verifyGitHubSignature,
-  verifyInternalSecret,
-  verifySessionToken,
-} from '../lib/auth';
+import { verifyGitHubSignature, verifyInternalSecret } from '../lib/auth';
 
-const SECRET = 'test-session-secret-value';
-
-describe('sessions', () => {
-  it('round-trips a signed session', async () => {
-    const token = await createSessionToken(60, SECRET);
-    expect(await verifySessionToken(token, SECRET)).toBe(true);
-  });
-
-  it('rejects a token signed with another secret', async () => {
-    const token = await createSessionToken(60, 'a-different-secret');
-    expect(await verifySessionToken(token, SECRET)).toBe(false);
-  });
-
-  it('rejects a tampered payload', async () => {
-    const token = await createSessionToken(60, SECRET);
-    const [body, signature] = token.split('.');
-    expect(await verifySessionToken(`${body}x.${signature}`, SECRET)).toBe(false);
-  });
-
-  it('rejects an expired session', async () => {
-    const token = await createSessionToken(-10, SECRET);
-    expect(await verifySessionToken(token, SECRET)).toBe(false);
-  });
-
-  it('rejects missing or malformed tokens', async () => {
-    expect(await verifySessionToken(undefined, SECRET)).toBe(false);
-    expect(await verifySessionToken('', SECRET)).toBe(false);
-    expect(await verifySessionToken('no-dot-here', SECRET)).toBe(false);
-  });
-
-  it('reads the session from a cookie header', async () => {
-    const token = await createSessionToken(60, SECRET);
-    const request = new Request('https://example.test/', {
-      headers: { cookie: `other=1; ${SESSION_COOKIE}=${token}; another=2` },
-    });
-    expect(await hasValidSession(request)).toBe(true);
-    expect(await hasValidSession(new Request('https://example.test/'))).toBe(false);
-  });
-
-  it('checks the admin password without leaking length by early exit', () => {
-    expect(checkAdminPassword('test-admin-password')).toBe(true);
-    expect(checkAdminPassword('wrong')).toBe(false);
-    expect(checkAdminPassword('')).toBe(false);
-  });
-});
+/**
+ * There is no human sign-in to test: the browser side is open by design.
+ * What remains are the two machine paths, and both still gate work that
+ * spends money or acts on the repository.
+ */
 
 describe('internal secret', () => {
   const make = (headers: Record<string, string>) => new Request('https://example.test/', { headers });
@@ -73,6 +25,12 @@ describe('internal secret', () => {
   it('rejects a wrong or absent token', () => {
     expect(verifyInternalSecret(make({ authorization: 'Bearer nope' }), 'test-internal-secret')).toBe(false);
     expect(verifyInternalSecret(make({}), 'test-internal-secret')).toBe(false);
+  });
+
+  it('rejects a token of the same length but different content', () => {
+    expect(verifyInternalSecret(make({ authorization: 'Bearer test-internal-secreT' }), 'test-internal-secret')).toBe(
+      false,
+    );
   });
 
   it('rejects everything when no secret is configured', () => {

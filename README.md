@@ -263,6 +263,7 @@ npm test                                          # unit and pipeline tests
 npm run typecheck
 npm run check:setup                               # what is configured, what is missing
 npm run check:provider                            # smallest real ElevenLabs test (<1 cent)
+                                                  # (or tap "Run preflight" in the studio)
 npm run episodes:validate                         # validate + price every spec
 npm run episodes:estimate -- <slug> --chunks      # per-chunk cost breakdown
 npm run episodes:publish -- <slug>                # draft -> ready_for_audio
@@ -311,8 +312,6 @@ Full acceptance checklist: [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md).
    | `ELEVENLABS_API_KEY` | from ElevenLabs |
    | `ELEVENLABS_HOST_VOICE_ID` | voice id |
    | `ELEVENLABS_GUEST_VOICE_ID` | voice id |
-   | `ADMIN_PASSWORD` | your password |
-   | `SESSION_SECRET` | `openssl rand -hex 32` |
    | `INTERNAL_GENERATION_SECRET` | `openssl rand -hex 32` |
    | `DATABASE_URL` | `libsql://…` from Turso |
    | `DATABASE_AUTH_TOKEN` | from Turso |
@@ -322,11 +321,11 @@ Full acceptance checklist: [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md).
 3. **Create a Blob store** (Storage → Create → Blob) and connect it to the
    project. Vercel injects `BLOB_READ_WRITE_TOKEN` automatically.
 
-4. **Deploy.** A deployment with no credentials still boots: it serves a setup
+4. **Deploy.** A deployment with no credentials still boots: the studio shows a
    checklist naming every variable it is still waiting for, and
    `GET /api/health` returns the same answer as JSON (it never returns a
-   secret's value, only whether one is set). Set the variables, redeploy, then
-   sign in with `ADMIN_PASSWORD`.
+   secret's value, only whether one is set). Set the variables and redeploy —
+   **Vercel only picks up new environment variables on a new deployment.**
 
    ```bash
    curl -s https://your-app.vercel.app/api/health | jq
@@ -484,20 +483,27 @@ the exact contract ChatGPT must follow. The short version:
 
 ## Security model
 
+This is a single-owner application with **no sign-in**. The browser side —
+library, player and studio — is open to anyone with the URL. That is a
+deliberate choice for a private tool nobody else is looking for; keep the
+repository private if you would rather the URL not be discoverable.
+
+What that means in practice, and what still protects the bill:
+
 - **Secrets stay server-side.** `ELEVENLABS_API_KEY`, blob and database
-  credentials, and both shared secrets are read only in server modules. No
+  credentials, and the shared secrets are read only in server modules. No
   `NEXT_PUBLIC_` variable exists in this project.
-- **Pages require a session.** `proxy.ts` (Next.js 16's middleware convention)
-  gates every page on a signed, HTTP-only cookie (HMAC-SHA256, 30-day expiry).
-- **API routes authenticate themselves**, because they accept a second identity:
-  `/api/generate` and `/api/admin/audio` take a session *or* the internal
-  secret; `/api/jobs/run` takes only the internal secret; the webhook takes only
-  a valid GitHub signature.
-- **Constant-time comparisons** for every secret check.
+- **Machine endpoints still authenticate.** `/api/jobs/run` (the worker) and
+  `/api/github/episodes-changed` require `INTERNAL_GENERATION_SECRET`; the
+  webhook requires a valid GitHub HMAC signature. Constant-time comparisons
+  throughout.
+- **The spend guards are in the pipeline, not the login page.** Only
+  `ready_for_audio` renders; one paid job per content version; hard character
+  and cost ceilings; bounded retries; chunk reuse on resume. Those hold whoever
+  presses the button, which is why removing sign-in does not remove the budget
+  protection.
 - **Logs are redacted.** Live secret values are stripped from log lines and
-  persisted events, including when they appear inside a provider error message.
-- **No unauthenticated path can spend money.** That is the invariant the tests
-  in `tests/auth.test.ts` and `tests/pipeline.test.ts` exist to protect.
+  persisted events, including inside provider error messages.
 
 ---
 
@@ -571,20 +577,20 @@ app/
   page.tsx                     library (mobile-first)
   episodes/[slug]/             episode page: player, chapters, transcript, sources
   admin/                       studio: estimates, chunk state, controls, logs
-  login/                       single-password sign-in
   api/
     generate/                  queue a render (session or internal secret)
     jobs/run/                  the worker; continues itself until done
     github/episodes-changed/   GitHub Action entry point (option A)
     webhooks/github/           signed webhook entry point (option B)
     cron/tick/                 sweeper: resync specs, resume stuck jobs
-    health/                    readiness report (unauthenticated, no secrets)
+    health/                    readiness report (no secrets, only which are set)
+    admin/preflight/           sub-cent ElevenLabs check, run from the studio
     admin/audio/               delete generated audio
-    auth/                      login / logout
     media/[...key]/            local audio delivery (dev), range-request capable
 components/
   audio-player.tsx             play, pause, seek, ±15s, speed, resume position
   generation-controls.tsx      spend-visible actions
+  preflight-button.tsx         one-tap provider check
 lib/
   episode/schema.ts            the episode specification (Zod, versioned)
   episode/source.ts            GitHub + filesystem spec loading
@@ -598,10 +604,9 @@ lib/
   storage/media-store.ts       Blob / local / in-memory media
   db/                          libSQL client, schema, typed store
   jobs/                        queueing, running, dispatch, triggers
-  auth.ts                      sessions, internal secret, webhook signatures
+  auth.ts                      internal secret, webhook signatures
   log.ts                       structured logging with secret redaction
   readiness.ts                 configuration diagnostics behind /api/health
-proxy.ts                       session gate for every page
 episodes/
   drafts/                      authored specs (safe: never render)
   published/                   specs you have authorised
