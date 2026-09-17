@@ -254,6 +254,10 @@ export async function runJob(options: RunOptions): Promise<RunResult> {
 
   let requestsUsed = leased.requestsUsed;
   let actualCostUsd = leased.actualCostUsd;
+  /** How long a chunk takes, learned from this run. Generation is slower than
+   *  realtime, so this starts pessimistic and adapts to what we measure. */
+  let expectedChunkMs = safetyConfig.chunkTimeBudgetMs;
+  let chunksThisInvocation = 0;
 
   for (const chunk of plan.chunks) {
     const stored = (await listChunks(leased.slug, plan.contentVersion)).find(
@@ -267,15 +271,27 @@ export async function runJob(options: RunOptions): Promise<RunResult> {
       return { status: 'failed', jobId: leased.id, reason };
     }
 
-    if (now() >= deadline) {
+    // Reserve room for the stitch and upload that follow the final chunk.
+    const isFinalChunk = chunk.sequence === plan.chunks.length - 1;
+    const timeLeft = deadline - now();
+    const timeNeeded = expectedChunkMs + (isFinalChunk ? safetyConfig.finaliseReserveMs : 0);
+
+    // Yielding before the first chunk would make no progress at all and the
+    // job would ping-pong between invocations forever, so the first chunk
+    // always runs — with its provider timeout clamped to the time available.
+    if (chunksThisInvocation > 0 && timeLeft < timeNeeded) {
       const remaining = plan.chunks.length - (await countGenerated(leased.slug, plan.contentVersion));
       await releaseJob(leased.id);
-      await logger.info('job.yield', { chunksRemaining: remaining }, { jobId: leased.id, slug: leased.slug });
+      await logger.info(
+        'job.yield',
+        { chunksRemaining: remaining, timeLeftMs: timeLeft, expectedChunkMs },
+        { jobId: leased.id, slug: leased.slug },
+      );
       return {
         status: 'incomplete',
         jobId: leased.id,
         chunksRemaining: remaining,
-        reason: 'Invocation time budget reached; job resumes on the next run',
+        reason: 'Not enough time left in this invocation for another chunk; job resumes on the next run',
       };
     }
 
@@ -290,8 +306,16 @@ export async function runJob(options: RunOptions): Promise<RunResult> {
     const startedAt = new Date().toISOString();
     const estimatedCost = roundUsd(rawCostForCharacters(chunk.characters));
 
+    // Abort ourselves before the platform kills the function: a killed
+    // invocation still bills the provider but stores nothing.
+    const providerTimeoutMs = Math.max(
+      5_000,
+      deadline - now() - safetyConfig.providerAbortMarginMs,
+    );
+    const chunkStartedMs = now();
+
     try {
-      const generated = await withRetries(() => client.generateDialogue(inputs), {
+      const generated = await withRetries(() => client.generateDialogue(inputs, { timeoutMs: providerTimeoutMs }), {
         maxAttempts: Math.max(1, safetyConfig.maxAttemptsPerChunk - (stored?.attempts ?? 0)),
         baseDelayMs: 1000,
         maxDelayMs: 15_000,
@@ -338,6 +362,10 @@ export async function runJob(options: RunOptions): Promise<RunResult> {
         startedAt,
       });
 
+      // A later chunk is never assumed faster than the slowest one so far.
+      expectedChunkMs = Math.max(expectedChunkMs, now() - chunkStartedMs);
+      chunksThisInvocation += 1;
+
       const completed = await countGenerated(leased.slug, plan.contentVersion);
       await updateJobProgress(leased.id, { chunksCompleted: completed, requestsUsed, actualCostUsd });
       await extendJobLease(leased.id, safetyConfig.jobLeaseMs);
@@ -348,6 +376,7 @@ export async function runJob(options: RunOptions): Promise<RunResult> {
           characters: generated.characters,
           bytes: generated.audio.byteLength,
           latencyMs: generated.latencyMs,
+          chunkWallClockMs: now() - chunkStartedMs,
           providerRequestId: generated.requestId,
           costUsd: chunkCost,
         },

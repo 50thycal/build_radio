@@ -139,7 +139,7 @@ export class ElevenLabsClient {
    * turn-taking. A chunk that happens to contain a single speaker still goes
    * through the same endpoint so the two paths cannot drift apart.
    */
-  async generateDialogue(inputs: DialogueInput[]): Promise<GeneratedAudio> {
+  async generateDialogue(inputs: DialogueInput[], options: { timeoutMs?: number } = {}): Promise<GeneratedAudio> {
     if (inputs.length === 0) {
       throw new ProviderError('Cannot generate audio for an empty chunk', {
         kind: 'invalid_request',
@@ -160,12 +160,21 @@ export class ElevenLabsClient {
       model_id: this.modelId,
     };
     const characters = inputs.reduce((sum, input) => sum + input.text.length, 0);
-    return this.request(url, body, characters);
+    return this.request(url, body, characters, options.timeoutMs);
   }
 
-  private async request(url: string, body: unknown, characters: number): Promise<GeneratedAudio> {
+  private async request(
+    url: string,
+    body: unknown,
+    characters: number,
+    timeoutOverrideMs?: number,
+  ): Promise<GeneratedAudio> {
+    // A caller with less time than the configured timeout (a serverless
+    // invocation about to end) can shorten it, so we abort ourselves rather
+    // than being killed after the provider has already billed the request.
+    const timeoutMs = Math.max(1_000, Math.min(this.timeoutMs, timeoutOverrideMs ?? this.timeoutMs));
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     const startedAt = Date.now();
 
     let response: Response;
@@ -184,7 +193,7 @@ export class ElevenLabsClient {
       const aborted = (error as Error)?.name === 'AbortError';
       throw new ProviderError(
         aborted
-          ? `ElevenLabs request timed out after ${this.timeoutMs}ms`
+          ? `ElevenLabs request timed out after ${timeoutMs}ms`
           : `Network failure calling ElevenLabs: ${(error as Error).message}`,
         { kind: aborted ? 'timeout' : 'network', retryable: true },
       );
