@@ -229,6 +229,26 @@ describe('idempotency and duplicate protection', () => {
     expect(probe.calls).toHaveLength(callsAfterFirstRun);
   });
 
+  it('ignores a second poke while the job is already leased', async () => {
+    // Re-poking a queued job is how a stranded render is revived, so it has to
+    // be safe against the case where the job was in fact already running.
+    await seed(makeEpisode({ dialogue: makeDialogue(4, 900) }));
+    const probe = createProviderProbe();
+    const media = new InMemoryMediaStore();
+    const queued = await queueGeneration({ slug: 'test-episode' });
+    if (queued.status !== 'queued') throw new Error('expected queued');
+
+    const first = runJob({ jobId: queued.job.id, client: probe.client, mediaStore: media, sleep: noSleep });
+    const second = runJob({ jobId: queued.job.id, client: probe.client, mediaStore: media, sleep: noSleep });
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+
+    // Exactly one of them did the work; the other found the lease held.
+    const statuses = [firstResult.status, secondResult.status].sort();
+    expect(statuses).toEqual(['completed', 'skipped']);
+    // The invariant that matters: one paid request per chunk, no repeats.
+    expect(probe.calls).toHaveLength(chunkEpisode(makeEpisode({ dialogue: makeDialogue(4, 900) })).length);
+  });
+
   it('reuses already-paid chunks when a job resumes', async () => {
     await seed(makeEpisode({ dialogue: makeDialogue(12, 900) }));
     const media = new InMemoryMediaStore();

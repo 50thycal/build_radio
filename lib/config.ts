@@ -69,6 +69,11 @@ export const safetyConfig = {
   /** A job that has not made progress for this long is considered stuck and
    *  may be reclaimed by the cron sweeper. */
   jobLeaseMs: num('JOB_LEASE_MS', 5 * 60_000),
+  /** How long to wait for the worker to acknowledge a poke. The worker answers
+   *  before it starts rendering, so this covers a round trip and nothing more;
+   *  exceeding it means the poke did not land, which is a dispatch failure
+   *  worth recording rather than a slow render. */
+  dispatchAckTimeoutMs: num('DISPATCH_ACK_TIMEOUT_MS', 10_000),
 } as const;
 
 export const elevenLabsConfig = {
