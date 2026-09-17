@@ -148,6 +148,14 @@ Notes:
   for portability (an exported episode carries its own telemetry); the database
   is authoritative for anything the renderer learned.
 
+Two episodes ship with the repository, both as drafts so that deploying can
+never spend anything by surprise:
+
+| Slug | Length | Chunks | Estimate | Purpose |
+| --- | --- | --- | --- | --- |
+| `pipeline-that-pays-for-itself` | ~5 min | 3 | $0.42 | First end-to-end test |
+| `building-from-an-iphone` | ~20 min | 9 | $1.63 | Full-length test (phase 7) |
+
 Validate everything in the repo, with prices:
 
 ```bash
@@ -251,8 +259,10 @@ required to run the whole pipeline on your machine.
 Useful commands:
 
 ```bash
-npm test                                          # 100+ unit and pipeline tests
+npm test                                          # unit and pipeline tests
 npm run typecheck
+npm run check:setup                               # what is configured, what is missing
+npm run check:provider                            # smallest real ElevenLabs test (<1 cent)
 npm run episodes:validate                         # validate + price every spec
 npm run episodes:estimate -- <slug> --chunks      # per-chunk cost breakdown
 npm run episodes:publish -- <slug>                # draft -> ready_for_audio
@@ -270,10 +280,13 @@ database, no cloud storage and no webhooks in the way.
 
 ```bash
 # 1. Put your key and two voice ids in .env.local
-# 2. See the plan and the price without spending
+# 2. Prove the integration works for less than a cent
+npm run check:provider
+
+# 3. See the plan and the price without spending
 npm run generate:local -- pipeline-that-pays-for-itself --dry-run
 
-# 3. Render it (~$0.42 for the bundled 5-minute sample)
+# 4. Render it (~$0.42 for the bundled 5-minute sample)
 npm run generate:local -- pipeline-that-pays-for-itself
 open out/pipeline-that-pays-for-itself.mp3
 ```
@@ -309,12 +322,27 @@ Full acceptance checklist: [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md).
 3. **Create a Blob store** (Storage → Create → Blob) and connect it to the
    project. Vercel injects `BLOB_READ_WRITE_TOKEN` automatically.
 
-4. **Deploy**, then open the URL and sign in with `ADMIN_PASSWORD`.
+4. **Deploy.** A deployment with no credentials still boots: it serves a setup
+   checklist naming every variable it is still waiting for, and
+   `GET /api/health` returns the same answer as JSON (it never returns a
+   secret's value, only whether one is set). Set the variables, redeploy, then
+   sign in with `ADMIN_PASSWORD`.
 
-5. **Enable Cron.** `vercel.json` already declares a 10-minute sweep of
-   `/api/cron/tick`, which resumes any job whose continuation call was lost.
-   Vercel sets `CRON_SECRET` for you; the endpoint accepts it or the internal
-   secret.
+   ```bash
+   curl -s https://your-app.vercel.app/api/health | jq
+   ```
+
+5. **Recovery sweep.** The job runner continues itself, so the sweep is only a
+   recovery path for a lost continuation call. Vercel's **Hobby plan allows one
+   cron run per day**, which is too slow to recover a stuck render, so the
+   frequent sweep runs from GitHub Actions instead:
+
+   - `vercel.json` declares a daily backstop at 04:00 UTC. Vercel sets
+     `CRON_SECRET`; the endpoint accepts it or the internal secret.
+   - `.github/workflows/sweep.yml` pokes `/api/cron/tick` every 15 minutes
+     using the same two repository secrets as the publish workflow.
+
+   On Pro, set `vercel.json` to `*/10 * * * *` and delete the workflow.
 
 6. **Function duration.** `/api/jobs/run` declares `maxDuration = 60`, which is
    valid on every plan. On Pro you can raise it (up to 300) and raise
@@ -479,7 +507,7 @@ the exact contract ChatGPT must follow. The short version:
 npm test
 ```
 
-102 tests covering the things that would actually hurt:
+108 tests covering the things that would actually hurt:
 
 | Area | What is proved |
 | --- | --- |
@@ -497,6 +525,11 @@ code, so the guarantees are the production ones.
 ---
 
 ## Troubleshooting
+
+**Start here for anything deployment-shaped** — `GET /api/health` reports which
+variables are set, whether the database is reachable, which storage driver is
+active and whether the deployment can generate at all. The same report is shown
+in the studio and, before you can sign in, on the login page.
 
 **"No voice id for speaker(s): guest"** — set `ELEVENLABS_GUEST_VOICE_ID`, or
 put a `voice_id` on that speaker in the spec. Voice ids are part of the content
@@ -545,6 +578,7 @@ app/
     github/episodes-changed/   GitHub Action entry point (option A)
     webhooks/github/           signed webhook entry point (option B)
     cron/tick/                 sweeper: resync specs, resume stuck jobs
+    health/                    readiness report (unauthenticated, no secrets)
     admin/audio/               delete generated audio
     auth/                      login / logout
     media/[...key]/            local audio delivery (dev), range-request capable
@@ -566,11 +600,13 @@ lib/
   jobs/                        queueing, running, dispatch, triggers
   auth.ts                      sessions, internal secret, webhook signatures
   log.ts                       structured logging with secret redaction
+  readiness.ts                 configuration diagnostics behind /api/health
 proxy.ts                       session gate for every page
 episodes/
   drafts/                      authored specs (safe: never render)
   published/                   specs you have authorised
-scripts/                       validate, estimate, publish, local render, db init
+scripts/                       validate, estimate, publish, local render, db init,
+                               provider preflight, setup check
 tests/                         unit + pipeline tests
 docs/                          schema, ChatGPT contract, acceptance checklist
 ```

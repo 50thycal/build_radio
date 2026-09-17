@@ -98,9 +98,29 @@ export const storageConfig = {
   localPublicPrefix: str('MEDIA_STORE_LOCAL_PREFIX', '/media'),
 } as const;
 
+/**
+ * Operational database.
+ *
+ * A `file:` URL is perfect locally and impossible on a serverless platform,
+ * where the bundle directory is read-only. Rather than crash on the first
+ * request, an unconfigured deployment falls back to a temporary file so the app
+ * boots and can explain itself (see lib/readiness.ts) — that database is wiped
+ * on every deployment and is not shared between instances, so production must
+ * set DATABASE_URL to a Turso URL.
+ */
+function defaultDatabaseUrl(): string {
+  const configured = str('DATABASE_URL');
+  if (configured) return configured;
+  return process.env.VERCEL ? 'file:/tmp/build-os-radio.db' : 'file:./data/build-os-radio.db';
+}
+
 export const dbConfig = {
-  url: str('DATABASE_URL', 'file:./data/build-os-radio.db'),
+  url: defaultDatabaseUrl(),
   authToken: str('DATABASE_AUTH_TOKEN'),
+  /** True when the database will not survive a deployment. */
+  get ephemeral(): boolean {
+    return this.url.startsWith('file:/tmp/');
+  },
 } as const;
 
 /** Absolute base URL of this deployment, used for job self-continuation. */

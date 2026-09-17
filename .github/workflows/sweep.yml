@@ -1,0 +1,53 @@
+name: Sweep stuck jobs
+
+# The job runner continues itself after each invocation, so this is only a
+# recovery path: it picks up a render whose continuation call was lost, and
+# refreshes the cached episode specs.
+#
+# It exists because Vercel's Hobby plan allows only ONE cron run per day, which
+# is too slow to recover a stuck render. GitHub's scheduler has no such limit,
+# so the frequent sweep lives here and vercel.json keeps a daily backstop.
+# On Vercel Pro you can delete this workflow and set vercel.json to */10.
+#
+# Required repository secrets (the same two the publish workflow uses):
+#   BUILD_OS_RADIO_URL
+#   INTERNAL_GENERATION_SECRET
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub may delay scheduled runs under load; this is a
+    # backstop, not a heartbeat, so late is fine.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: sweep-stuck-jobs
+  cancel-in-progress: true
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Poke the sweeper
+        env:
+          APP_URL: ${{ secrets.BUILD_OS_RADIO_URL }}
+          INTERNAL_SECRET: ${{ secrets.INTERNAL_GENERATION_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ] || [ -z "${INTERNAL_SECRET:-}" ]; then
+            echo "Secrets not configured yet; nothing to sweep."
+            exit 0
+          fi
+          status=$(curl --silent --show-error --max-time 60 \
+            --write-out '%{http_code}' --output response.json \
+            -X POST "${APP_URL%/}/api/cron/tick" \
+            -H "authorization: Bearer ${INTERNAL_SECRET}") || true
+          echo "HTTP $status"
+          cat response.json || true
+          echo ""
+          # A sweep that cannot reach the app is worth failing loudly for.
+          if [ "$status" != "200" ]; then
+            echo "::error::Sweeper returned $status"
+            exit 1
+          fi

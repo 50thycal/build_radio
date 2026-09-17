@@ -5,6 +5,8 @@ export const metadata: Metadata = {
   title: 'Build OS Radio',
   description: 'A private podcast library for Build OS episodes.',
   appleWebApp: { capable: true, title: 'Build OS Radio', statusBarStyle: 'black-translucent' },
+  manifest: '/manifest.webmanifest',
+  icons: { icon: '/icon.svg', apple: '/icon.svg' },
 };
 
 export const viewport: Viewport = {

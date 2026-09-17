@@ -637,3 +637,76 @@ button.action,
 
 .log-list .level-error { color: var(--bad); }
 .log-list .level-warn { color: var(--warn); }
+
+/* ------------------------------------------------------------------ setup */
+
+.setup-shell {
+  max-width: 560px;
+}
+
+.setup-wordmark {
+  display: block;
+  margin: 8vh 0 10px;
+  font-size: 13px;
+}
+
+.setup-intro {
+  margin: 0 0 20px;
+  font-size: 14.5px;
+}
+
+.setup-card .title {
+  margin-bottom: 14px;
+}
+
+.setup-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.setup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.setup-label {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.setup-detail {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
+.setup-vars {
+  margin: 6px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.setup-vars code,
+.setup-footer code {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11.5px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: var(--accent);
+}
+
+.setup-footer {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}

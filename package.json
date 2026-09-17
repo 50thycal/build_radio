@@ -18,7 +18,9 @@
     "episodes:publish": "tsx scripts/publish-episode.ts",
     "episodes:estimate": "tsx scripts/estimate-episode.ts",
     "generate:local": "tsx scripts/generate-local.ts",
-    "db:init": "tsx scripts/db-init.ts"
+    "db:init": "tsx scripts/db-init.ts",
+    "check:provider": "tsx scripts/check-provider.ts",
+    "check:setup": "tsx scripts/check-setup.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.15.4",
