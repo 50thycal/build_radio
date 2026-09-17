@@ -7,7 +7,17 @@ import { describe, expect, it, vi } from 'vitest';
  */
 async function loadConfig(env: Record<string, string | undefined>) {
   const saved = { ...process.env };
-  for (const key of ['DATABASE_URL', 'TURSO_DATABASE_URL', 'TURSO_URL', 'DATABASE_AUTH_TOKEN', 'TURSO_AUTH_TOKEN']) {
+  const managed = [
+    'DATABASE_URL',
+    'TURSO_DATABASE_URL',
+    'TURSO_URL',
+    'DATABASE_TURSO_DATABASE_URL',
+    'DATABASE_AUTH_TOKEN',
+    'TURSO_AUTH_TOKEN',
+    'TURSO_DATABASE_AUTH_TOKEN',
+    'DATABASE_TURSO_AUTH_TOKEN',
+  ];
+  for (const key of managed) {
     delete process.env[key];
   }
   Object.assign(process.env, env);
@@ -58,5 +68,18 @@ describe('database variable diagnostics', () => {
     // Nothing in the output may resemble a value.
     expect(names.join(' ')).not.toContain('secret.turso.io');
     expect(names.join(' ')).not.toContain('super-secret-token');
+  });
+});
+
+describe('turso integration prefixing', () => {
+  it('accepts the names produced by a "DATABASE" prefix on the Turso integration', async () => {
+    const config = await loadConfig({
+      DATABASE_TURSO_DATABASE_URL: 'libsql://prefixed.turso.io',
+      DATABASE_TURSO_AUTH_TOKEN: 'prefixed-token',
+    });
+    expect(config.url).toBe('libsql://prefixed.turso.io');
+    expect(config.urlVariable).toBe('DATABASE_TURSO_DATABASE_URL');
+    expect(config.authToken).toBe('prefixed-token');
+    expect(config.ephemeral).toBe(false);
   });
 });

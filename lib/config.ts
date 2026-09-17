@@ -130,8 +130,21 @@ export const storageConfig = {
  * prefix was chosen, instead of silently falling back to a temporary database
  * that looks fine until a render spans two serverless instances.
  */
-const DATABASE_URL_VARIABLES = ['DATABASE_URL', 'TURSO_DATABASE_URL', 'TURSO_URL'] as const;
-const DATABASE_TOKEN_VARIABLES = ['DATABASE_AUTH_TOKEN', 'TURSO_AUTH_TOKEN', 'TURSO_DATABASE_AUTH_TOKEN'] as const;
+const DATABASE_URL_VARIABLES = [
+  'DATABASE_URL',
+  'TURSO_DATABASE_URL',
+  'TURSO_URL',
+  // The Turso Vercel integration prepends the prefix chosen at install time to
+  // its own TURSO_ names, so a "DATABASE" prefix yields this rather than the
+  // DATABASE_URL it looks like it should.
+  'DATABASE_TURSO_DATABASE_URL',
+] as const;
+const DATABASE_TOKEN_VARIABLES = [
+  'DATABASE_AUTH_TOKEN',
+  'TURSO_AUTH_TOKEN',
+  'TURSO_DATABASE_AUTH_TOKEN',
+  'DATABASE_TURSO_AUTH_TOKEN',
+] as const;
 
 function firstConfigured(names: readonly string[]): { name: string; value: string } | null {
   for (const name of names) {
