@@ -6,7 +6,7 @@
   "subtitle": "Why Build OS Radio treats an episode as data, not a transcript",
   "project": "build-os",
   "created_at": "2026-09-17T14:00:00Z",
-  "status": "draft",
+  "status": "ready_for_audio",
   "format": "host_guest",
   "estimated_runtime_minutes": 4,
   "description": "A short pilot episode used to validate the Build OS Radio pipeline end to end: chunking, two-voice dialogue generation, stitching, storage and playback. Flip status to ready_for_audio to run the acceptance test.",
