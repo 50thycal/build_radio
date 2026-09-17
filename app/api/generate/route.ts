@@ -44,7 +44,19 @@ export async function POST(request: Request): Promise<Response> {
     });
   }
   if (result.status === 'duplicate') {
-    return json({ status: 'duplicate', jobId: result.job.id, reason: result.reason });
+    // A job already exists for this content version — but "exists" is not
+    // "running". If its poke was lost, absorbing this trigger silently would
+    // strand the job forever, because the studio disables Generate while a job
+    // is queued. So re-poke it: runJob leases the job, so a poke aimed at one
+    // that is genuinely running is a no-op rather than a second paid render.
+    const dispatch = await triggerJobRun(result.job.id);
+    return json({
+      status: 'duplicate',
+      jobId: result.job.id,
+      reason: result.reason,
+      dispatched: dispatch.dispatched,
+      dispatchError: dispatch.reason,
+    });
   }
   if (result.status === 'already_generated') {
     return json({ status: 'already_generated', reason: result.reason });
