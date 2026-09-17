@@ -1,0 +1,96 @@
+name: Publish episodes
+
+# Integration option A: GitHub notices which specs changed and tells the
+# deployment. GitHub never holds the ElevenLabs key — the only secret here is
+# the shared internal token, and the deployment decides what anything costs.
+#
+# Required repository secrets:
+#   BUILD_OS_RADIO_URL              https://your-app.vercel.app
+#   INTERNAL_GENERATION_SECRET      same value as the Vercel environment variable
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'episodes/**/*.json'
+  workflow_dispatch:
+    inputs:
+      slugs:
+        description: 'Comma-separated slugs to (re)check'
+        required: true
+
+concurrency:
+  group: publish-episodes
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need the previous commit to diff against.
+          fetch-depth: 2
+
+      - name: Collect changed episode slugs
+        id: collect
+        run: |
+          set -euo pipefail
+          if [ -n "${{ github.event.inputs.slugs || '' }}" ]; then
+            printf '%s' '${{ github.event.inputs.slugs }}' | tr ',' '\n' | sed '/^$/d' > slugs.txt
+          else
+            git diff --name-only --diff-filter=AM "${{ github.event.before }}" "${{ github.sha }}" \
+              | grep -E '^episodes/(drafts|published)/[^/]+\.json$' \
+              | sed -E 's#^episodes/(drafts|published)/##; s#\.json$##' \
+              | sort -u > slugs.txt || true
+          fi
+          echo "Changed slugs:"; cat slugs.txt
+          # Build a JSON array without needing jq to be installed.
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, pathlib
+          slugs = [line.strip() for line in pathlib.Path('slugs.txt').read_text().splitlines() if line.strip()]
+          print(f"count={len(slugs)}")
+          print(f"json={json.dumps(slugs)}")
+          PY
+
+      - name: Notify Build OS Radio
+        if: steps.collect.outputs.count != '0'
+        env:
+          APP_URL: ${{ secrets.BUILD_OS_RADIO_URL }}
+          INTERNAL_SECRET: ${{ secrets.INTERNAL_GENERATION_SECRET }}
+          SLUGS: ${{ steps.collect.outputs.json }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ] || [ -z "${INTERNAL_SECRET:-}" ]; then
+            echo "::error::BUILD_OS_RADIO_URL and INTERNAL_GENERATION_SECRET must be set as repository secrets"
+            exit 1
+          fi
+          # The commit sha is the delivery id, so re-running this workflow
+          # cannot start a second paid render of the same change.
+          body=$(python3 -c "import json,os;print(json.dumps({'slugs':json.loads(os.environ['SLUGS']),'deliveryId':os.environ['GITHUB_SHA']}))")
+          status=$(curl --silent --show-error --fail-with-body \
+            --write-out '%{http_code}' --output response.json \
+            --max-time 60 \
+            -X POST "${APP_URL%/}/api/github/episodes-changed" \
+            -H 'content-type: application/json' \
+            -H "authorization: Bearer ${INTERNAL_SECRET}" \
+            -d "$body") || true
+          echo "HTTP $status"
+          cat response.json || true
+          echo ""
+          if [ "$status" != "200" ]; then
+            echo "::error::Build OS Radio rejected the notification"
+            exit 1
+          fi
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Episode notification"
+            echo ""
+            echo "Slugs: ${{ steps.collect.outputs.json }}"
+            echo ""
+            echo "Only specs with \`\"status\": \"ready_for_audio\"\` start a paid render."
+          } >> "$GITHUB_STEP_SUMMARY"
