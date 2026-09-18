@@ -107,6 +107,48 @@ describe('rebuilding a lost database from storage', () => {
     expect((await getEpisode('test-episode'))?.audioUrl).toBeNull();
   });
 
+  it('reads only the manifests of episodes it is trying to recover', async () => {
+    const episode = makeEpisode({ dialogue: makeDialogue(6, 900), status: 'ready_for_audio' });
+    const media = new InMemoryMediaStore({ addRandomSuffix: true });
+    const probe = createProviderProbe();
+
+    await syncEpisodes(MemoryEpisodeSource.fromEpisodes([episode]) as never);
+    const queued = await queueGeneration({ slug: 'test-episode' });
+    if (queued.status !== 'queued') throw new Error('expected queued');
+    await runJob({ jobId: queued.job.id, client: probe.client, mediaStore: media, sleep: noSleep });
+
+    // A larger library: manifests belonging to episodes we are not recovering.
+    for (const other of ['another-show', 'a-third-show', 'yet-another']) {
+      await media.put(
+        `${MANIFEST_PREFIX}${other}/someversion.json`,
+        new TextEncoder().encode('{"manifestVersion":1}'),
+        'application/json',
+      );
+    }
+
+    const reads: string[] = [];
+    const watched = new Proxy(media, {
+      get(target, property, receiver) {
+        if (property === 'get') {
+          return (keyOrUrl: string) => {
+            reads.push(keyOrUrl);
+            return target.get(keyOrUrl);
+          };
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    await useTestDb();
+    const outcome = await syncEpisodes(MemoryEpisodeSource.fromEpisodes([episode]) as never, watched);
+    expect(outcome.recovered).toEqual(['test-episode']);
+
+    // Exactly one manifest fetched, and it belongs to the episode being restored.
+    const manifestReads = reads.filter((key) => key.includes(MANIFEST_PREFIX));
+    expect(manifestReads).toHaveLength(1);
+    expect(manifestReads[0]).toContain('test-episode');
+  });
+
   it('ignores a corrupt manifest rather than failing the sync', async () => {
     const episode = makeEpisode({ dialogue: makeDialogue(4, 900), status: 'ready_for_audio' });
     const media = new InMemoryMediaStore();

@@ -81,9 +81,22 @@ export async function writeManifest(
   }
 }
 
-/** Manifests found in storage, newest publish per content version. */
-async function loadManifests(mediaStore: MediaStore): Promise<Map<string, PublishManifest>> {
-  const objects = await mediaStore.list(MANIFEST_PREFIX);
+/**
+ * Manifests found in storage, newest publish per content version.
+ *
+ * Only manifests belonging to the episodes we are trying to recover are read.
+ * Enumeration is one call whatever the size of the library, but fetching is
+ * per object, so a library of a hundred episodes must not be downloaded to
+ * restore one.
+ */
+async function loadManifests(
+  mediaStore: MediaStore,
+  slugs: Set<string>,
+): Promise<Map<string, PublishManifest>> {
+  const objects = (await mediaStore.list(MANIFEST_PREFIX)).filter((object) => {
+    const slug = object.key.slice(MANIFEST_PREFIX.length).split('/')[0];
+    return slugs.has(slug);
+  });
   const byVersion = new Map<string, PublishManifest>();
 
   for (const object of objects) {
@@ -124,7 +137,7 @@ export async function recoverPublishedAudio(
 
   let manifests: Map<string, PublishManifest>;
   try {
-    manifests = await loadManifests(mediaStore);
+    manifests = await loadManifests(mediaStore, new Set(candidates.map((record) => record.slug)));
   } catch (error) {
     await logger.warn('manifest.list.failed', { detail: String(error) }, { persist: false });
     return { recovered: [], checked: candidates.length };
