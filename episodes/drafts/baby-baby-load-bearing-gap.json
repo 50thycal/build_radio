@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "id": "baby-baby-load-bearing-gap",
+  "slug": "baby-baby-load-bearing-gap",
+  "title": "The Gap Is Load-Bearing",
+  "subtitle": "Baby Baby, and the database constraint nobody should have to read aloud",
+  "project": "baby-baby",
+  "created_at": "2026-09-18T13:00:00Z",
+  "status": "ready_for_audio",
+  "format": "host_guest",
+  "estimated_runtime_minutes": 3,
+  "description": "A short, deliberately loose conversation about the Baby Baby app: a three-tap design constraint, a dial with a gap you cannot drag past, and the fourth allowed value in an enum.",
+  "speakers": {
+    "host": { "name": "Build", "voice_id": "", "role": "Host" },
+    "guest": { "name": "Sam", "voice_id": "", "role": "Guest" }
+  },
+  "dialogue": [
+    {
+      "speaker": "host",
+      "text": "Okay, this week I want to talk about Baby Baby. Which is, and I want to be really clear about this, the actual name of the repository."
+    },
+    { "speaker": "guest", "text": "[laughs] You named it twice.", "delivery": "delighted" },
+    { "speaker": "host", "text": "I named it twice." },
+    { "speaker": "guest", "text": "Was Baby taken?" },
+    {
+      "speaker": "host",
+      "text": "[amused] Probably. Look, it tracks feeding, sleep and diapers. One URL, one database. Whoever logs something, everyone sees it."
+    },
+    { "speaker": "guest", "text": "The design constraint is the good part though. Read me the constraint." },
+    {
+      "speaker": "host",
+      "text": "Logging something should take two or three taps. One handed. In the dark. While holding a baby."
+    },
+    {
+      "speaker": "guest",
+      "text": "Most honest performance requirement I've ever heard. Can you do it one handed at three in the morning."
+    },
+    { "speaker": "host", "text": "And everything falls out of that. There are no date pickers anywhere in the app." },
+    { "speaker": "guest", "text": "None?" },
+    { "speaker": "host", "text": "Zero. Everything defaults to right now. You tap it to nudge it, five minutes at a time." },
+    { "speaker": "guest", "text": "Because nobody is opening a calendar at three in the morning." },
+    { "speaker": "host", "text": "You're already on today. [dryly] You've been on today for nineteen hours." },
+    { "speaker": "guest", "text": "[laughs] Okay, that's bleak." },
+    {
+      "speaker": "host",
+      "text": "The feed dial is my favourite piece of engineering pettiness. Two hundred and seventy degree drag dial, nought to two hundred millilitres—"
+    },
+    { "speaker": "guest", "text": "Why two seventy? Why not go all the way round?" },
+    {
+      "speaker": "host",
+      "text": "Because a full circle wraps. You drag past two hundred and land on zero. The gap exists so your thumb physically can't do that."
+    },
+    { "speaker": "guest", "text": "So the gap is load-bearing." },
+    {
+      "speaker": "host",
+      "text": "The gap is load-bearing. And it opens on whatever the last feed was, because the best predictor of the next feed is the last feed."
+    },
+    { "speaker": "guest", "text": "[dryly] Deep learning." },
+    { "speaker": "host", "text": "State of the art." },
+    { "speaker": "guest", "text": "Alright, tell me about the sleep thing. You got weirdly animated about this on the phone." },
+    {
+      "speaker": "host",
+      "text": "The baby being asleep is just a row with an empty end time. And that has to be true on every phone in the house at once. So Postgres enforces it, not the interface. One open session. Ever."
+    },
+    { "speaker": "guest", "text": "And if two people put her down at the same time?" },
+    {
+      "speaker": "host",
+      "text": "Second one gets a rejection back carrying the session that's already running, and their app just quietly adopts it."
+    },
+    {
+      "speaker": "guest",
+      "text": "So you built conflict resolution for two parents doing the same job without telling each other."
+    },
+    { "speaker": "host", "text": "[laughs] Yeah. That's marriage. It's in the schema." },
+    { "speaker": "guest", "text": "What are you proudest of that nobody would ever notice?" },
+    { "speaker": "host", "text": "Weights aren't events." },
+    { "speaker": "guest", "text": "Go on." },
+    {
+      "speaker": "host",
+      "text": "Everything else answers what happened, and when. A weight answers what she is. That doesn't stop being true because it fell outside the window you're looking at."
+    },
+    { "speaker": "guest", "text": "[amused] Bit philosophical for a nappy app." },
+    { "speaker": "host", "text": "It's a family nappy app. We contain multitudes." },
+    { "speaker": "guest", "text": "Speaking of. Diaper types." },
+    { "speaker": "host", "text": "[sighs] I knew you were going to go there." },
+    { "speaker": "guest", "text": "Four allowed values. Pee. Poop. Both. And read me the fourth one." },
+    { "speaker": "host", "text": "Massive blowout." },
+    { "speaker": "guest", "text": "[laughs] In the database. As a constraint." },
+    {
+      "speaker": "host",
+      "text": "There is a check constraint in a production Postgres instance with the words massive blowout in it, and it will outlive both of us."
+    },
+    { "speaker": "guest", "text": "That's her permanent record. That's forever." },
+    { "speaker": "host", "text": "She'll thank me." },
+    { "speaker": "guest", "text": "[dryly] She will not thank you." },
+    { "speaker": "host", "text": "[laughs] She will not thank me. That's Baby Baby." }
+  ],
+  "chapters": [
+    { "title": "Named twice", "start_seconds": null, "dialogue_index": 0 },
+    { "title": "One hand, in the dark", "start_seconds": null, "dialogue_index": 6 },
+    { "title": "The gap is load-bearing", "start_seconds": null, "dialogue_index": 14 },
+    { "title": "One sleep to rule them all", "start_seconds": null, "dialogue_index": 21 },
+    { "title": "Weights aren't events", "start_seconds": null, "dialogue_index": 27 },
+    { "title": "The fourth value", "start_seconds": null, "dialogue_index": 33 }
+  ],
+  "sources": [
+    { "title": "Baby Baby", "url": "https://github.com/50thycal/baby_baby", "note": "Feeding, sleep and diaper tracker" }
+  ],
+  "generation": {},
+  "audio": {},
+  "metadata": {
+    "purpose": "Voice and delivery test: audio tags, interruptions, callbacks, natural turn lengths",
+    "tags_under_test": "laughs, amused, dryly, sighs",
+    "cast": "host=Build, guest=Sam"
+  }
+}
