@@ -27,6 +27,7 @@ import {
   type LoadedEpisode,
 } from './source';
 import type { EpisodeSpec } from './schema';
+import type { MediaStore } from '../storage/media-store';
 
 /** Everything needed to render an episode, computed deterministically. */
 export type RenderPlan = {
@@ -68,6 +69,8 @@ export function chunkTextHash(chunk: DialogueChunk): string {
 export type SyncOutcome = {
   synced: { slug: string; status: string; contentVersion: string }[];
   invalid: { path: string; slug: string; issues: { path: string; message: string }[] }[];
+  /** Episodes whose audio was restored from storage after losing the record. */
+  recovered?: string[];
 };
 
 /**
@@ -76,7 +79,10 @@ export type SyncOutcome = {
  * Safe to call on any request path that lists episodes: it is idempotent and
  * never touches runtime columns.
  */
-export async function syncEpisodes(source: EpisodeSource = createEpisodeSource()): Promise<SyncOutcome> {
+export async function syncEpisodes(
+  source: EpisodeSource = createEpisodeSource(),
+  mediaStore?: MediaStore,
+): Promise<SyncOutcome> {
   const loaded = await loadAllEpisodes(source);
   const outcome: SyncOutcome = { synced: [], invalid: [] };
 
@@ -104,6 +110,18 @@ export async function syncEpisodes(source: EpisodeSource = createEpisodeSource()
       status: item.episode.status,
       contentVersion: plan.contentVersion,
     });
+  }
+
+  // A spec sync recreates the episode rows but not what was rendered from
+  // them, so this is where a database that lost its audio gets it back. It
+  // costs nothing when every non-draft episode already has its audio.
+  try {
+    const { recoverPublishedAudio } = await import('./manifest');
+    const { createMediaStore } = await import('../storage/media-store');
+    const store = mediaStore ?? createMediaStore();
+    outcome.recovered = (await recoverPublishedAudio(await listEpisodes(), store)).recovered;
+  } catch {
+    outcome.recovered = []; // Recovery is best effort; a sync must still succeed.
   }
 
   return outcome;
