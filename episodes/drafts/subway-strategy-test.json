@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "id": "subway-strategy-test",
+  "slug": "subway-strategy-test",
+  "title": "Subway: Build the City, Break the Budget",
+  "subtitle": "A quick look at the strategy hiding inside the Subway board game",
+  "project": "party-games",
+  "created_at": "2026-09-18T03:13:00Z",
+  "status": "ready_for_audio",
+  "format": "host_guest",
+  "estimated_runtime_minutes": 2,
+  "description": "A short Build Radio test episode about strategy in the Subway board game.",
+  "speakers": {
+    "host": {
+      "name": "Build",
+      "voice_id": "",
+      "role": "Host"
+    },
+    "guest": {
+      "name": "Game Designer",
+      "voice_id": "",
+      "role": "Guest"
+    }
+  },
+  "dialogue": [
+    {
+      "speaker": "host",
+      "text": "This is Build Radio. Today we're looking at Subway, a board game where players build competing transit networks across a city. At first it looks like a route-building puzzle. Underneath that, though, there's an economy game."
+    },
+    {
+      "speaker": "guest",
+      "text": "Exactly. Every station, turn, crossing, and connection is really a capital allocation decision. You're not just asking where your line should go. You're asking what is worth paying for now."
+    },
+    {
+      "speaker": "host",
+      "text": "And players can go into debt, which creates an interesting endgame strategy."
+    },
+    {
+      "speaker": "guest",
+      "text": "Debt changes the tempo. Early debt can hurt because you carry the downside for a long time. But if you're close to finishing a valuable line, taking on debt for one huge construction turn can make sense. You're effectively borrowing against victory points."
+    },
+    {
+      "speaker": "host",
+      "text": "Then there are shared stations and crossings. Using another company's infrastructure costs money, but avoiding it might force a longer route."
+    },
+    {
+      "speaker": "guest",
+      "text": "Which creates the interesting part: the cheapest network is not necessarily the best network. Players are balancing objectives, connectivity, construction speed, cash, and global bonuses like longest network and largest transfer station."
+    },
+    {
+      "speaker": "host",
+      "text": "So Subway isn't really about drawing lines. It's about deciding when efficiency matters, when expansion matters, and when it's worth spending tomorrow's money today. That's Build Radio."
+    }
+  ],
+  "chapters": [
+    {
+      "title": "The economy underneath Subway",
+      "start_seconds": null,
+      "dialogue_index": 0
+    },
+    {
+      "title": "Debt as strategy",
+      "start_seconds": null,
+      "dialogue_index": 2
+    },
+    {
+      "title": "Network tradeoffs",
+      "start_seconds": null,
+      "dialogue_index": 4
+    }
+  ],
+  "sources": [
+    {
+      "title": "Subway game",
+      "note": "50thycal/party-games"
+    }
+  ],
+  "generation": {
+    "provider": "elevenlabs",
+    "model": "eleven_v3",
+    "estimated_characters": 0,
+    "estimated_cost_usd": 0,
+    "actual_characters": 0,
+    "actual_cost_usd": 0,
+    "regeneration_cost_usd": 0,
+    "chunk_count": 0
+  },
+  "audio": {
+    "status": "not_generated",
+    "duration_seconds": null,
+    "url": null,
+    "checksum": null
+  },
+  "metadata": {
+    "purpose": "ElevenLabs two-speaker test",
+    "authored_by": "ChatGPT Build Radio"
+  }
+}
