@@ -14,6 +14,7 @@
  *   - failure is an explicit state with a preserved reason, never a silent stop
  */
 import { chunkAudioKey, episodeAudioKey, createMediaStore, type MediaStore } from '../storage/media-store';
+import { writeManifest } from '../episode/manifest';
 import { createStitcher, type Stitcher } from '../audio/stitcher';
 import { elevenLabsConfig, safetyConfig } from '../config';
 import { ElevenLabsClient, ProviderError, withRetries, type DialogueInput } from '../elevenlabs';
@@ -489,18 +490,38 @@ async function finalise(
 
   const chapters = deriveChapters(plan.episode, plan.chunks, stitched.partOffsets);
   const isRerender = previousContentVersion === plan.contentVersion && job.kind !== 'generate';
+  const checksum = sha256(stitched.data);
 
   await publishEpisodeAudio({
     slug: job.slug,
     audioKey: stored.key,
     audioUrl: stored.url,
     durationSeconds: stitched.durationSeconds,
-    checksum: sha256(stitched.data),
+    checksum,
     actualCharacters: plan.estimate.characters,
     actualCostUsd,
     regenerationCostUsd: isRerender ? actualCostUsd : 0,
     chapters,
   });
+
+  // Leave storage self-describing: this is what lets a lost database be
+  // rebuilt instead of the episode becoming unreachable audio.
+  await writeManifest(
+    {
+      manifestVersion: 1,
+      slug: job.slug,
+      contentVersion: plan.contentVersion,
+      audioKey: stored.key,
+      audioUrl: stored.url,
+      durationSeconds: stitched.durationSeconds,
+      checksum,
+      actualCharacters: plan.estimate.characters,
+      actualCostUsd,
+      chapters,
+      publishedAt: new Date().toISOString(),
+    },
+    mediaStore,
+  );
   await updateJobProgress(job.id, {
     chunksCompleted: plan.chunks.length,
     requestsUsed,

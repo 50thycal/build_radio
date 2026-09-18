@@ -25,12 +25,18 @@ export class MediaStoreError extends Error {
   }
 }
 
+/** One object as the store reports it, for enumeration. */
+export type StoredObject = { key: string; url: string; size: number };
+
 export interface MediaStore {
   readonly name: string;
   put(key: string, data: Uint8Array, contentType: string): Promise<StoredMedia>;
   /** Read back a stored object. Chunk audio is read back when a job resumes in
    *  a later invocation, which is what stops us paying twice for good chunks. */
   get(keyOrUrl: string): Promise<Uint8Array>;
+  /** Enumerate objects under a prefix. This is what lets the operational
+   *  database be rebuilt from storage rather than mourned when it is lost. */
+  list(prefix: string): Promise<StoredObject[]>;
   remove(keyOrUrl: string): Promise<void>;
 }
 
@@ -67,6 +73,26 @@ export class VercelBlobStore implements MediaStore {
       return new Uint8Array(await response.arrayBuffer());
     } catch (error) {
       throw new MediaStoreError(`Vercel Blob read failed for ${keyOrUrl}: ${(error as Error).message}`, error);
+    }
+  }
+
+  async list(prefix: string): Promise<StoredObject[]> {
+    try {
+      const { list } = await import('@vercel/blob');
+      const found: StoredObject[] = [];
+      let cursor: string | undefined;
+      // Paginate: a library with a long history must enumerate completely or
+      // recovery would silently restore only part of it.
+      do {
+        const page = await list({ prefix, token: this.token, cursor, limit: 1000 });
+        for (const blob of page.blobs) {
+          found.push({ key: blob.pathname, url: blob.url, size: blob.size });
+        }
+        cursor = page.hasMore ? page.cursor : undefined;
+      } while (cursor);
+      return found;
+    } catch (error) {
+      throw new MediaStoreError(`Vercel Blob list failed for ${prefix}: ${(error as Error).message}`, error);
     }
   }
 
@@ -126,6 +152,23 @@ export class LocalMediaStore implements MediaStore {
     }
   }
 
+  async list(prefix: string): Promise<StoredObject[]> {
+    const { readdir } = await import('node:fs/promises');
+    const root = path.join(process.cwd(), 'data', 'media');
+    let entries: string[];
+    try {
+      entries = (await readdir(root, { recursive: true, withFileTypes: true }))
+        .filter((entry) => entry.isFile())
+        .map((entry) => path.relative(root, path.join(entry.parentPath, entry.name)));
+    } catch {
+      return []; // Nothing written yet is not an error.
+    }
+    return entries
+      .map((relative) => relative.split(path.sep).join('/'))
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => ({ key, url: `${this.publicPrefix}/${key}`, size: 0 }));
+  }
+
   async remove(keyOrUrl: string): Promise<void> {
     const key = keyOrUrl.startsWith(this.publicPrefix)
       ? keyOrUrl.slice(this.publicPrefix.length)
@@ -170,6 +213,12 @@ export class InMemoryMediaStore implements MediaStore {
     return item.data;
   }
 
+  async list(prefix: string): Promise<StoredObject[]> {
+    return [...this.items.entries()]
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([key, item]) => ({ key, url: `memory://${key}`, size: item.data.byteLength }));
+  }
+
   async remove(keyOrUrl: string): Promise<void> {
     this.items.delete(keyOrUrl.replace(/^memory:\/\//, ''));
   }
@@ -194,6 +243,16 @@ export function createMediaStore(): MediaStore {
  *  regeneration never silently overwrites the file a listener is streaming. */
 export function episodeAudioKey(slug: string, contentVersion: string): string {
   return `episodes/${slug}/${contentVersion}.mp3`;
+}
+
+/**
+ * Storage key for an episode's publish manifest.
+ *
+ * Kept under its own prefix so recovery can enumerate manifests alone, without
+ * paging through every audio file to find them.
+ */
+export function episodeManifestKey(slug: string, contentVersion: string): string {
+  return `manifests/${slug}/${contentVersion}.json`;
 }
 
 /** Storage key for a single generated chunk, kept so a failed stitch or a
