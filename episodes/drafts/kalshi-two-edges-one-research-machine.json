@@ -6,7 +6,7 @@
   "subtitle": "Liquidity incentives, the discretionary research desk, and what the evidence says to build next",
   "project": "kalshi-bot",
   "created_at": "2026-09-19T21:55:00Z",
-  "status": "draft",
+  "status": "ready_for_audio",
   "format": "host_guest",
   "estimated_runtime_minutes": 15,
   "description": "A review of the Kalshi bot's two newest research tracks: the liquidity-incentive market-making thesis and the discretionary market research desk. The episode separates what has actually been built and measured from what remains hypothetical, then lays out the next evidence-gathering steps before either approach should scale.",
